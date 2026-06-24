@@ -98,14 +98,14 @@ export const ResultPreviewCard: React.FC<ResultPreviewCardProps> = ({ sql = '' }
   }
 
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-lg shadow-black/10 transition-transform duration-300 hover:-translate-y-0.5">
+    <div className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-sm transition-transform duration-300 hover:-translate-y-0.5">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex w-full items-center justify-between bg-slate-950/80 px-5 py-4 text-left text-sm font-semibold text-foreground transition hover:bg-slate-900"
+        className="flex w-full items-center justify-between gap-3 bg-secondary px-5 py-4 text-left text-sm font-semibold text-foreground transition hover:bg-secondary/80"
       >
         <span className="flex items-center gap-2">
-          <LayoutGrid className="h-4.5 w-4.5 text-cyan-400" />
+          <LayoutGrid className="h-4.5 w-4.5 text-cyan-500 dark:text-cyan-400" />
           Result Preview
         </span>
         <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -116,40 +116,40 @@ export const ResultPreviewCard: React.FC<ResultPreviewCardProps> = ({ sql = '' }
       {isOpen && (
         <div className="space-y-5 px-5 pb-5 pt-4">
           <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-            <div className="rounded-3xl bg-slate-950/70 p-4 text-sm text-slate-300 shadow-inner shadow-black/20">
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Preview status</p>
-              <p className="mt-2 text-sm text-slate-300">This live preview renders a placeholder dataset to give you a feel for your query structure.</p>
+            <div className="rounded-3xl bg-secondary/50 p-4 text-sm text-foreground">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Preview status</p>
+              <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">This live preview renders a placeholder dataset to give you a feel for your query structure.</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative w-full">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-500" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                   placeholder="Search preview"
-                  className="w-full rounded-2xl border border-border/80 bg-slate-950/80 py-3 pl-10 pr-4 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-2xl border border-border bg-background py-3 pl-10 pr-4 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
           </div>
 
           {mockData.rows.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-950/80 p-8 text-center text-slate-500">
-              <FileText className="mx-auto mb-3 h-6 w-6 text-slate-500" />
+            <div className="rounded-3xl border border-dashed border-border bg-secondary/30 p-8 text-center text-muted-foreground">
+              <FileText className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
               <p className="text-sm font-semibold text-foreground">No results available yet</p>
-              <p className="mt-2 text-sm text-slate-400">Run a query to view a preview from your database.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Run a query to view a preview from your database.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-[1.75rem] border border-border bg-slate-950/90">
+            <div className="overflow-hidden rounded-[1.75rem] border border-border bg-card">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-800 text-sm text-left">
-                  <thead className="bg-slate-950/90 text-slate-400">
+                <table className="min-w-full divide-y divide-border/60 text-sm text-left">
+                  <thead className="bg-secondary/70 text-muted-foreground">
                     <tr>
                       {mockData.columns.map((column) => (
                         <th
                           key={column}
                           onClick={() => handleSort(column)}
-                          className="cursor-pointer px-4 py-3 font-semibold uppercase tracking-[0.12em] text-slate-400 transition hover:text-cyan-300"
+                          className="cursor-pointer px-4 py-3 font-semibold uppercase tracking-[0.12em] text-muted-foreground transition hover:text-cyan-600 dark:hover:text-cyan-300"
                         >
                           <div className="flex items-center gap-1">
                             {column}
@@ -159,19 +159,19 @@ export const ResultPreviewCard: React.FC<ResultPreviewCardProps> = ({ sql = '' }
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 bg-slate-950">
+                  <tbody className="divide-y divide-border bg-card">
                     {currentRows.map((row, rowIndex) => (
-                      <tr key={rowIndex} className="transition hover:bg-slate-900/70">
+                      <tr key={rowIndex} className="transition hover:bg-secondary/40">
                         {row.map((value, colIndex) => (
-                          <td key={`${rowIndex}-${colIndex}`} className="px-4 py-3 text-slate-300">{value}</td>
+                          <td key={`${rowIndex}-${colIndex}`} className="px-4 py-3 text-foreground">{value}</td>
                         ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="flex flex-col gap-3 border-t border-slate-800 bg-slate-950/90 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              <div className="flex flex-col gap-3 border-t border-border bg-secondary/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   Showing {currentRows.length} of {filteredRows.length} rows
                 </span>
                 <div className="flex items-center gap-2">
@@ -179,16 +179,16 @@ export const ResultPreviewCard: React.FC<ResultPreviewCardProps> = ({ sql = '' }
                     type="button"
                     onClick={() => setPage((value) => Math.max(1, value - 1))}
                     disabled={page === 1}
-                    className="rounded-2xl border border-border/80 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-2xl border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Previous
                   </button>
-                  <span className="text-xs text-slate-400">{page}/{totalPages}</span>
+                  <span className="text-xs text-muted-foreground">{page}/{totalPages}</span>
                   <button
                     type="button"
                     onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
                     disabled={page === totalPages}
-                    className="rounded-2xl border border-border/80 bg-slate-900/80 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-2xl border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Next
                   </button>
@@ -197,9 +197,9 @@ export const ResultPreviewCard: React.FC<ResultPreviewCardProps> = ({ sql = '' }
             </div>
           )}
 
-          <div className="rounded-3xl border border-white/10 bg-slate-950/80 px-4 py-4 text-sm text-slate-400 shadow-inner shadow-black/20">
-            <div className="flex items-center gap-2 text-slate-500">
-              <CornerDownRight className="h-4.5 w-4.5" />
+          <div className="rounded-3xl border border-border bg-secondary/45 px-4 py-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <CornerDownRight className="h-4.5 w-4.5 text-cyan-500 dark:text-cyan-400" />
               <p>Preview results do not reflect live database values unless executed by the backend.</p>
             </div>
           </div>

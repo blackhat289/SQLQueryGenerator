@@ -24,6 +24,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 import { useToast } from '../components/ToastNotifications'
 import api from '../services/api'
+import { useTheme } from '../hooks/useTheme'
 
 const cardBase =
   'rounded-[28px] border border-border bg-card/45 dark:border-white/10 dark:bg-white/5 backdrop-blur-xl p-8 shadow-[0_30px_80px_-60px_rgba(124,58,237,0.55)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_40px_120px_-70px_rgba(124,58,237,0.65)]'
@@ -66,7 +67,7 @@ const defaultSettings = {
   notifyErrorAlerts: localStorage.getItem('sqlgenie_notify_error_alerts') !== 'false',
   notifySecurityAlerts: localStorage.getItem('sqlgenie_notify_security_alerts') !== 'false',
   notifyProductUpdates: localStorage.getItem('sqlgenie_notify_product_updates') !== 'false',
-  appearanceTheme: localStorage.getItem('sqlgenie_appearance_theme') || 'dark',
+  appearanceTheme: localStorage.getItem('theme') || 'dark',
   fontSize: localStorage.getItem('sqlgenie_font_size') || 'medium',
 }
 
@@ -76,6 +77,7 @@ type ModalAction = 'clearHistory' | 'deleteLogs' | 'resetSettings' | null
 
 export const Settings: React.FC = () => {
   const { showToast } = useToast()
+  const { setTheme: setThemeHook } = useTheme()
   const [settings, setSettings] = useState<SettingsState>({ ...defaultSettings })
   const [savedSettings, setSavedSettings] = useState<SettingsState>({ ...defaultSettings })
   const [savedAt, setSavedAt] = useState<string>('Saved just now')
@@ -143,7 +145,7 @@ export const Settings: React.FC = () => {
     localStorage.setItem('sqlgenie_notify_error_alerts', String(settings.notifyErrorAlerts))
     localStorage.setItem('sqlgenie_notify_security_alerts', String(settings.notifySecurityAlerts))
     localStorage.setItem('sqlgenie_notify_product_updates', String(settings.notifyProductUpdates))
-    localStorage.setItem('sqlgenie_appearance_theme', settings.appearanceTheme)
+    localStorage.setItem('theme', settings.appearanceTheme)
     localStorage.setItem('sqlgenie_font_size', settings.fontSize)
   }
 
@@ -670,14 +672,23 @@ export const Settings: React.FC = () => {
               <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Theme</label>
               <select
                 value={settings.appearanceTheme}
-                onChange={(e) => updateSetting('appearanceTheme', e.target.value as SettingsState['appearanceTheme'])}
+                onChange={(e) => {
+                  const val = e.target.value as SettingsState['appearanceTheme']
+                  updateSetting('appearanceTheme', val)
+                  if (val === 'system') {
+                    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                    setThemeHook(prefersDark ? 'dark' : 'light')
+                  } else {
+                    setThemeHook(val as 'light' | 'dark')
+                  }
+                }}
                 className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
               >
                 <option value="dark">Dark</option>
                 <option value="light">Light</option>
                 <option value="system">System</option>
               </select>
-              <p className="text-xs text-slate-500">Choose how Genie appears in the UI.</p>
+              <p className="text-xs text-muted-foreground">Choose how Genie appears in the UI.</p>
             </div>
 
             <div className="space-y-2">

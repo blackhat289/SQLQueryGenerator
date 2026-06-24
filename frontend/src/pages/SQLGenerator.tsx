@@ -319,7 +319,7 @@ export const SQLGenerator: React.FC = () => {
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-cyan-300/80">AI SQL Workspace</p>
+            <p className="text-sm uppercase tracking-[0.24em] text-cyan-600 dark:text-cyan-300/80">AI SQL Workspace</p>
             <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">Granting Your Database Wishes</h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">
               Transform natural language requests into clean, optimized SQL with premium AI insights, interactive previews, and intelligent query guidance.
@@ -595,47 +595,47 @@ export const SQLGenerator: React.FC = () => {
 
         <div className="space-y-6">
           {datasetMeta ? (
-            <div className="rounded-[2rem] border border-border/70 bg-slate-950/80 p-6 shadow-2xl shadow-black/10">
+            <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Uploaded dataset</p>
                   <h2 className="mt-2 text-2xl font-bold text-foreground">{datasetMeta.name}</h2>
                 </div>
-                <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Data loaded</span>
+                <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-200">Data loaded</span>
               </div>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4 text-center">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Rows</p>
+                <div className="rounded-3xl border border-border bg-secondary/40 p-4 text-center">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Rows</p>
                   <p className="mt-3 text-3xl font-semibold text-foreground">{datasetMeta.rows}</p>
                 </div>
-                <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4 text-center">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Columns</p>
+                <div className="rounded-3xl border border-border bg-secondary/40 p-4 text-center">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Columns</p>
                   <p className="mt-3 text-3xl font-semibold text-foreground">{datasetMeta.columns}</p>
                 </div>
               </div>
-              <div className="mt-6 rounded-3xl border border-white/10 bg-slate-900/80 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Preview schema</p>
-                <p className="mt-2 text-sm text-slate-300">{schemaPreview?.tableName || 'Dataset'}</p>
+              <div className="mt-6 rounded-3xl border border-border bg-secondary/40 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Preview schema</p>
+                <p className="mt-2 text-sm text-foreground">{schemaPreview?.tableName || 'Dataset'}</p>
               </div>
             </div>
           ) : (
-            <div className="rounded-[2rem] border border-dashed border-border/70 bg-slate-950/80 p-6 text-center shadow-2xl shadow-black/10">
-              <Terminal className="mx-auto mb-4 h-12 w-12 text-slate-500" />
+            <div className="rounded-[2rem] border border-dashed border-border bg-card p-6 text-center shadow-sm">
+              <Terminal className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
               <h3 className="text-lg font-semibold text-foreground">No dataset loaded</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-400">Upload a dataset in the left panel to unlock dataset-aware SQL generation and previews.</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Upload a dataset in the left panel to unlock dataset-aware SQL generation and previews.</p>
             </div>
           )}
 
           {data ? (
             <div className="space-y-6">
-              <div className="rounded-[2rem] border border-border/70 bg-slate-950/80 p-6 shadow-2xl shadow-black/10">
+              <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
                 <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   <span className="inline-flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-violet-400" /> AI Confidence
+                    <Cpu className="h-4 w-4 text-violet-500 dark:text-violet-400" /> AI Confidence
                   </span>
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300">92%</span>
+                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-300">92%</span>
                 </div>
-                <p className="mt-4 text-sm text-slate-400">This result preview is generated from AI-assisted SQL output and dataset metadata.</p>
+                <p className="mt-4 text-sm text-muted-foreground">This result preview is generated from AI-assisted SQL output and dataset metadata.</p>
               </div>
               <AIConfidenceCard score={92} />
             </div>

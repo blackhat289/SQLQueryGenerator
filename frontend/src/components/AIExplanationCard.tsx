@@ -34,14 +34,14 @@ export const AIExplanationCard: React.FC<AIExplanationCardProps> = ({ sql, table
   }, [sql, tablesUsed])
 
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl shadow-black/10 transition-transform duration-300 hover:-translate-y-0.5">
+    <div className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-sm transition-transform duration-300 hover:-translate-y-0.5">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-3 bg-slate-950/80 px-5 py-4 text-left text-sm font-semibold text-foreground transition hover:bg-slate-900"
+        className="flex w-full items-center justify-between gap-3 bg-secondary px-5 py-4 text-left text-sm font-semibold text-foreground transition hover:bg-secondary/80"
       >
         <span className="flex items-center gap-2">
-          <ShieldCheck className="h-4.5 w-4.5 text-cyan-400" />
+          <ShieldCheck className="h-4.5 w-4.5 text-cyan-500 dark:text-cyan-400" />
           Why This Query Was Generated
         </span>
         <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -52,31 +52,31 @@ export const AIExplanationCard: React.FC<AIExplanationCardProps> = ({ sql, table
       {isOpen && (
         <div className="space-y-5 px-5 pb-5 pt-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-border/70 bg-slate-950/80 p-4">
+            <div className="rounded-3xl border border-border bg-secondary/40 p-4">
               <div className="flex items-center gap-3">
-                <ArrowRight className="h-5 w-5 text-cyan-300" />
+                <ArrowRight className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Target table</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Target table</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">{details.targetTable}</p>
                 </div>
               </div>
             </div>
-            <div className="rounded-3xl border border-border/70 bg-slate-950/80 p-4">
+            <div className="rounded-3xl border border-border bg-secondary/40 p-4">
               <div className="flex items-center gap-3">
-                <Columns className="h-5 w-5 text-cyan-300" />
+                <Columns className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Required columns</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Required columns</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">
                     {details.selectedColumns.join(', ')}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="rounded-3xl border border-border/70 bg-slate-950/80 p-4">
+            <div className="rounded-3xl border border-border bg-secondary/40 p-4">
               <div className="flex items-center gap-3">
-                <Filter className="h-5 w-5 text-cyan-300" />
+                <Filter className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Applied filters</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Applied filters</p>
                   <p className="mt-2 text-sm font-semibold text-foreground truncate">{details.filters}</p>
                 </div>
               </div>
@@ -84,20 +84,20 @@ export const AIExplanationCard: React.FC<AIExplanationCardProps> = ({ sql, table
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-3xl border border-border/70 bg-slate-950/80 p-4">
+            <div className="rounded-3xl border border-border bg-secondary/40 p-4">
               <div className="flex items-center gap-3">
-                <Layers className="h-5 w-5 text-cyan-300" />
+                <Layers className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Applied sorting</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Applied sorting</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">{details.sortFields}</p>
                 </div>
               </div>
             </div>
-            <div className="rounded-3xl border border-border/70 bg-slate-950/80 p-4">
+            <div className="rounded-3xl border border-border bg-secondary/40 p-4">
               <div className="flex items-center gap-3">
-                <Terminal className="h-5 w-5 text-cyan-300" />
+                <Terminal className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Generated optimized SQL</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Generated optimized SQL</p>
                   <p className="mt-2 text-sm font-semibold text-foreground overflow-hidden text-ellipsis max-h-16">{details.optimizedSql}</p>
                 </div>
               </div>

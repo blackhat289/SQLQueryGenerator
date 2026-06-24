@@ -41,15 +41,15 @@ export const InsightCards: React.FC<InsightCardsProps> = ({ queryType, tablesUse
       {cards.map((card) => {
         const Icon = card.icon
         return (
-          <div key={card.title} className="rounded-[1.75rem] border border-border/70 bg-slate-950/80 p-5 shadow-[0_20px_80px_-60px_rgba(15,23,42,0.8)] transition hover:-translate-y-0.5">
+          <div key={card.title} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5">
             <div className="flex items-center justify-between gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-3xl bg-slate-900 text-cyan-300 shadow-sm shadow-cyan-500/10">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-3xl bg-secondary text-cyan-600 dark:text-cyan-300 shadow-sm">
                 <Icon className="h-5 w-5" />
               </div>
-              <span className="text-[11px] uppercase tracking-[0.22em] text-slate-500">{card.title}</span>
+              <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{card.title}</span>
             </div>
             <p className="mt-5 text-lg font-semibold text-foreground leading-tight">{card.value}</p>
-            <p className="mt-3 text-sm leading-6 text-slate-400">{card.description}</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{card.description}</p>
           </div>
         )
       })}

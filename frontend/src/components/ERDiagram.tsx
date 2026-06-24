@@ -131,7 +131,7 @@ export const ERDiagram: React.FC<ERDiagramProps> = ({ tables }) => {
                             isPK 
                               ? 'text-amber-500 font-semibold' 
                               : isFK 
-                              ? 'text-indigo-400 font-semibold' 
+                              ? 'text-indigo-600 dark:text-indigo-400 font-semibold' 
                               : 'text-muted-foreground'
                           }`}
                         >

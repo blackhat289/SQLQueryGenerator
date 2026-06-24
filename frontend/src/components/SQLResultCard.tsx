@@ -130,7 +130,7 @@ export const SQLResultCard: React.FC<SQLResultCardProps> = ({ sql, title = "Gene
           </button>
           <button
             onClick={handleDownload}
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/40 hover:bg-slate-900"
+            className="flex items-center gap-1.5 rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-secondary/80"
           >
             <FileText className="h-3.5 w-3.5" />
             <span>Download</span>
@@ -145,7 +145,7 @@ export const SQLResultCard: React.FC<SQLResultCardProps> = ({ sql, title = "Gene
           <button
             onClick={handleExecute}
             disabled={executing}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
           >
             {executing ? (
               <>

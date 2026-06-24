@@ -21,6 +21,24 @@ const SchemaCatalogSchema = new mongoose.Schema({
       "order_items": ["id", "order_id", "product_id", "quantity", "price"]
     }
   },
+  embeddings: {
+    type: Map,
+    of: [Number],
+    default: {}
+  },
+  relationships: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [
+      { fromTable: "orders", fromColumn: "user_id", toTable: "users", toColumn: "id" },
+      { fromTable: "order_items", fromColumn: "order_id", toTable: "orders", toColumn: "id" },
+      { fromTable: "order_items", fromColumn: "product_id", toTable: "products", toColumn: "id" }
+    ]
+  },
+  descriptions: {
+    type: Map,
+    of: String,
+    default: {}
+  },
   rawSql: {
     type: String,
     default: ''

@@ -1,5 +1,11 @@
 const Query = require('../models/Query');
 const SchemaCatalog = require('../models/Schema');
+const geminiService = require('../services/ai/gemini.service');
+const promptService = require('../services/ai/prompt.service');
+const explanationService = require('../services/ai/explanation.service');
+const retrievalService = require('../services/rag/retrieval.service');
+const sqlValidatorService = require('../services/validation/sqlValidator.service');
+const sqlOptimizerService = require('../services/optimization/sqlOptimizer.service');
 
 // Utility to extract column keys and construct a basic SQL string based on NLP queries
 const generateSqlFromPrompt = (prompt, schemaTables) => {
@@ -247,7 +253,7 @@ const explainQueryMechanics = (sql, schemaTables = {}) => {
 // @access  Private
 exports.generateSql = async (req, res, next) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, chatHistory = [] } = req.body;
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({
@@ -263,10 +269,68 @@ exports.generateSql = async (req, res, next) => {
       schema = await SchemaCatalog.create({ user: req.user.id });
     }
 
-    const sql = generateSqlFromPrompt(prompt, schema.tables);
-    const complexity = estimateComplexity(sql);
-    const optimization = analyzeOptimization(sql, schema.tables);
-    const explanation = explainQueryMechanics(sql, schema.tables);
+    // 1. RAG Schema Retrieval
+    const { relevantTables, logStatus } = await retrievalService.retrieveRelevantSchema(prompt, req.user.id);
+
+    let sql = '';
+    let usedAi = false;
+
+    // 2. LLM-Based Text-to-SQL Generation using Gemini
+    if (process.env.GEMINI_API_KEY && process.env.ENABLE_AI_SQL_GENERATION !== 'false') {
+      try {
+        const systemInstruction = promptService.getSqlSystemInstruction();
+        const userPrompt = promptService.buildSqlPrompt(prompt, relevantTables, schema.relationships, chatHistory);
+        
+        let aiGeneratedSql = await geminiService.generateText(userPrompt, systemInstruction);
+        // Clean markdown code blocks from the generated response
+        aiGeneratedSql = aiGeneratedSql.replace(/```sql/gi, '').replace(/```/gi, '').trim();
+
+        if (aiGeneratedSql && !aiGeneratedSql.startsWith('ERROR:')) {
+          sql = aiGeneratedSql;
+          usedAi = true;
+        }
+      } catch (aiError) {
+        console.error('Gemini query generation failed, falling back to rule-based parser:', aiError.message);
+      }
+    }
+
+    // Fallback to rule-based query parser if AI is offline or key is missing
+    if (!sql) {
+      sql = generateSqlFromPrompt(prompt, schema.tables);
+    }
+
+    // 3. Query Validation Engine
+    const validation = await sqlValidatorService.validateSql(sql, schema.tables);
+
+    // 4. AI SQL Optimization Assistant
+    let optimization;
+    if (process.env.ENABLE_QUERY_OPTIMIZATION !== 'false') {
+      optimization = await sqlOptimizerService.analyzeAndOptimize(sql, schema.tables);
+    } else {
+      optimization = {
+        score: 95,
+        rating: 'Good',
+        suggestions: ['Check primary keys index coverage.'],
+        complexity: 'Easy'
+      };
+    }
+
+    // 5. AI Query Explanation
+    let explanationText = '';
+    if (usedAi && process.env.GEMINI_API_KEY && process.env.ENABLE_QUERY_EXPLANATION !== 'false') {
+      explanationText = await explanationService.explainSqlQuery(sql, schema.tables);
+    } else {
+      const stepMechanics = explainQueryMechanics(sql, schema.tables);
+      explanationText = stepMechanics.map((s) => s.description).join(' ');
+    }
+
+    const explanation = [
+      {
+        step: 'Execution Plan',
+        action: 'AI Query Explanation',
+        description: explanationText,
+      },
+    ];
 
     const tablesUsed = Object.keys(schema.tables).filter((t) =>
       sql.toUpperCase().includes(t.toUpperCase())
@@ -277,8 +341,8 @@ exports.generateSql = async (req, res, next) => {
       user: req.user.id,
       nlQuery: prompt,
       sqlQuery: sql,
-      explanation: explanation.map((s) => s.description).join(' '),
-      complexity: complexity.level,
+      explanation: explanationText,
+      complexity: optimization.complexity,
       optimizationScore: optimization.score,
       tablesUsed: tablesUsed.length > 0 ? tablesUsed : ['general'],
     });
@@ -286,10 +350,23 @@ exports.generateSql = async (req, res, next) => {
     res.status(200).json({
       id: queryLog._id,
       sql,
-      complexity,
-      optimization,
+      complexity: {
+        level: optimization.complexity,
+        details: {
+          indicators: optimization.suggestions,
+        },
+      },
+      optimization: {
+        score: optimization.score,
+        suggestions: optimization.suggestions,
+        rating: optimization.rating,
+      },
       explanation,
-      rag_status: schema.filename ? `Applied schema catalog (${schema.filename})` : 'Default active schema schema applied',
+      validation: {
+        isValid: validation.isValid,
+        errorReason: validation.errorReason,
+      },
+      rag_status: `${logStatus} ${usedAi ? '(Powered by Gemini AI)' : '(Rule-Based Fallback)'}`,
       tables_used: tablesUsed.length > 0 ? tablesUsed : ['general'],
       isSaved: queryLog.isSaved,
     });

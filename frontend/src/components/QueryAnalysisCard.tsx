@@ -44,13 +44,13 @@ export const QueryAnalysisCard: React.FC<QueryAnalysisCardProps> = ({ complexity
         {cards.map((item) => {
           const Icon = item.icon
           return (
-            <div key={item.label} className="rounded-3xl border border-border/80 bg-slate-950/70 p-4 transition hover:border-primary/40 hover:bg-slate-900/80">
+            <div key={item.label} className="rounded-3xl border border-border bg-secondary/40 p-4 transition hover:border-primary/40 hover:bg-secondary/70">
               <div className="flex items-center gap-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-300 shadow-sm shadow-violet-500/10">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-600 dark:text-violet-300 shadow-sm">
                   <Icon className="h-4.5 w-4.5" />
                 </span>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
                   <p className="mt-2 text-sm font-semibold text-foreground">{item.value}</p>
                 </div>
               </div>
@@ -59,9 +59,9 @@ export const QueryAnalysisCard: React.FC<QueryAnalysisCardProps> = ({ complexity
         })}
       </div>
 
-      <div className="mt-5 rounded-3xl border border-white/10 bg-slate-950/80 px-4 py-4 text-sm text-slate-400 shadow-inner shadow-black/20">
-        <p className="font-semibold text-slate-200">Tables involved</p>
-        <p className="mt-2 text-sm text-slate-400">{tablesUsed.length > 0 ? tablesUsed.join(', ') : 'No tables detected yet'}</p>
+      <div className="mt-5 rounded-3xl border border-border bg-secondary/50 dark:border-white/10 dark:bg-slate-950/80 px-4 py-4 text-sm text-muted-foreground">
+        <p className="font-semibold text-foreground">Tables involved</p>
+        <p className="mt-2 text-sm text-muted-foreground">{tablesUsed.length > 0 ? tablesUsed.join(', ') : 'No tables detected yet'}</p>
       </div>
     </div>
   )
