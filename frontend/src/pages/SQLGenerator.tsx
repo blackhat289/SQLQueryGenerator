@@ -391,24 +391,50 @@ export const SQLGenerator: React.FC = () => {
   const datasetTotalPages = Math.max(1, Math.ceil(sortedDatasetRows.length / 10))
 
   const enhancedPrompt = (prompt: string) => {
-    if (!datasetMeta || !schemaPreview) return prompt
-    const tables = schemaPreview.tables || [{ tableName: schemaPreview.tableName, columns: schemaPreview.columns }]
-    const schemaDescription = tables.map(
-      (t) => `Table "${t.tableName}" with columns: ${t.columns.map((c) => `${c.name} (${c.type})`).join(', ')}`
-    ).join('\n')
-    return `${prompt}\n\nDatabase Schema from uploaded file (${datasetMeta.name}):\n${schemaDescription}\n\nIMPORTANT: Use ONLY the tables and columns listed above. Do not invent or guess table/column names.`
+    const dialect = localStorage.getItem('sqlgenie_sql_dialect') || 'postgresql'
+    let promptText = prompt
+    if (datasetMeta && schemaPreview) {
+      const tables = schemaPreview.tables || [{ tableName: schemaPreview.tableName, columns: schemaPreview.columns }]
+      const schemaDescription = tables.map(
+        (t) => `Table "${t.tableName}" with columns: ${t.columns.map((c) => `${c.name} (${c.type})`).join(', ')}`
+      ).join('\n')
+      promptText = `${prompt}\n\nDatabase Schema from uploaded file (${datasetMeta.name}):\n${schemaDescription}\n\nIMPORTANT: Use ONLY the tables and columns listed above. Do not invent or guess table/column names.`
+    }
+    promptText += `\nUse the ${dialect} SQL dialect when generating the SQL query.`
+    return promptText
   }
 
   const handleGenerate = async (prompt: string) => {
     setLoading(true)
     setData(null)
+
+    const provider = localStorage.getItem('sqlgenie_ai_provider') || 'mock'
+    const apiKey = localStorage.getItem('sqlgenie_openai_key') || ''
+    const autoOptimize = localStorage.getItem('sqlgenie_auto_optimize') !== 'false'
+    const autoExplain = localStorage.getItem('sqlgenie_auto_explain') !== 'false'
+    const queryValidation = localStorage.getItem('sqlgenie_query_validation') !== 'false'
+
+    const notifyCompletion = localStorage.getItem('sqlgenie_notify_query_completion') !== 'false'
+    const notifyErrors = localStorage.getItem('sqlgenie_notify_error_alerts') !== 'false'
+
     try {
-      const response = await api.post<GenerateResponse>('/generate', { prompt: enhancedPrompt(prompt) })
+      const response = await api.post<GenerateResponse>('/generate', {
+        prompt: enhancedPrompt(prompt),
+        provider,
+        apiKey,
+        autoOptimize,
+        autoExplain,
+        queryValidation,
+      })
       setData(response.data)
-      showToast('Generated SQL query successfully!', 'success')
+      if (notifyCompletion) {
+        showToast('Generated SQL query successfully!', 'success')
+      }
     } catch (err: any) {
       const msg = err.displayMessage || 'Failed to translate natural language prompt.'
-      showToast(msg, 'error')
+      if (notifyErrors) {
+        showToast(msg, 'error')
+      }
     } finally {
       setLoading(false)
     }

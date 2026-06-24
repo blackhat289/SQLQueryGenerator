@@ -1,6 +1,42 @@
 import React, { useState, useEffect } from 'react'
 import { Copy, Check, Play, Table, Loader2, FileText, CornerDownRight } from 'lucide-react'
 
+// Lightweight regex-based SQL syntax highlighting tool
+const highlightSQL = (code: string): string => {
+  const keywords = [
+    'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'OUTER JOIN',
+    'ON', 'GROUP BY', 'ORDER BY', 'LIMIT', 'OFFSET', 'HAVING', 'AND', 'OR', 'IN', 'NOT',
+    'LIKE', 'ILIKE', 'IS', 'NULL', 'AS', 'SUM', 'AVG', 'COUNT', 'MIN', 'MAX',
+    'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'PRIMARY', 'KEY', 'FOREIGN'
+  ]
+  
+  // Escape HTML entities to prevent rendering issues or injection
+  const escaped = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  const regex = /(\/\*[\s\S]*?\*\/|--.*)|(&quot;(?:[^&]|\\.)*&quot;)|(&#39;(?:[^&]|\\.)*&#39;)|('(?:[^'\\]|\\.)*')|("(?:[^"\\]|\\.)*")|(\b\d+\b)|(\b[a-zA-Z_][a-zA-Z0-9_]*\b)/g
+
+  return escaped.replace(regex, (match, comment, dblQuote1, sglQuote1, sglQuote2, dblQuote2, numberVal, wordVal) => {
+    if (comment) {
+      return `<span class="text-zinc-500 italic">${match}</span>`
+    }
+    if (dblQuote1 || sglQuote1 || sglQuote2 || dblQuote2) {
+      return `<span class="text-amber-300">${match}</span>`
+    }
+    if (numberVal) {
+      return `<span class="text-rose-400">${match}</span>`
+    }
+    if (wordVal) {
+      if (keywords.includes(wordVal.toUpperCase())) {
+        return `<span class="text-[#a855f7] font-bold">${match}</span>`
+      }
+    }
+    return match
+  })
+}
+
 interface SQLResultCardProps {
   sql: string;
   title?: string;
@@ -10,14 +46,13 @@ export const SQLResultCard: React.FC<SQLResultCardProps> = ({ sql, title = "Gene
   const [copied, setCopied] = useState(false)
   const [executed, setExecuted] = useState(false)
   const [executing, setExecuting] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Reset execution state if SQL changes
   useEffect(() => {
     setExecuted(false)
     setExecuting(false)
   }, [sql])
-
-  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -104,6 +139,17 @@ export const SQLResultCard: React.FC<SQLResultCardProps> = ({ sql, title = "Gene
 
   const mockData = getMockData()
 
+  // Load editor configurations from local settings storage
+  const wordWrap = localStorage.getItem('sqlgenie_word_wrap') !== 'false'
+  const lineNumbers = localStorage.getItem('sqlgenie_line_numbers') !== 'false'
+  const syntaxHighlighting = localStorage.getItem('sqlgenie_syntax_highlighting') !== 'false'
+
+  // Highlight and prepare SQL string representation
+  const highlightedCode = syntaxHighlighting ? highlightSQL(sql) : sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const lines = highlightedCode.split('\n')
+
+  const preClass = `text-xs text-zinc-100 leading-relaxed font-mono ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre overflow-x-auto'}`
+
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm premium-border">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -161,9 +207,20 @@ export const SQLResultCard: React.FC<SQLResultCardProps> = ({ sql, title = "Gene
           </button>
         </div>
       </div>
-      <div className="relative bg-zinc-950 rounded-xl p-4 overflow-x-auto border border-zinc-800 text-left">
-        <pre className="text-xs text-zinc-100 whitespace-pre-wrap leading-relaxed font-mono">
-          <code>{sql}</code>
+      <div className="relative bg-zinc-950 rounded-xl p-4 border border-zinc-800 text-left overflow-x-auto">
+        <pre className={preClass}>
+          {lineNumbers ? (
+            <div className="flex flex-col">
+              {lines.map((line, idx) => (
+                <div key={idx} className="flex hover:bg-zinc-900/35">
+                  <span className="w-8 shrink-0 text-zinc-600 select-none text-right pr-3 border-r border-zinc-800/80 mr-3">{idx + 1}</span>
+                  <span dangerouslySetInnerHTML={{ __html: line || ' ' }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+          )}
         </pre>
       </div>
 

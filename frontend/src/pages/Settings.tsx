@@ -31,42 +31,27 @@ const cardBase =
 
 const editorOptions = [
   { key: 'wordWrap', label: 'Word Wrap' },
-  { key: 'autoCompletion', label: 'Auto Completion' },
   { key: 'syntaxHighlighting', label: 'Syntax Highlighting' },
   { key: 'lineNumbers', label: 'Line Numbers' },
-  { key: 'queryFormatting', label: 'Query Formatting' },
 ] as const
 
 const notificationOptions = [
   { key: 'notifyQueryCompletion', label: 'Query completion notifications' },
   { key: 'notifyErrorAlerts', label: 'Error alerts' },
-  { key: 'notifySecurityAlerts', label: 'Security alerts' },
-  { key: 'notifyProductUpdates', label: 'Product updates' },
 ] as const
 
 const defaultSettings = {
   provider: localStorage.getItem('sqlgenie_ai_provider') || 'mock',
   apiKey: localStorage.getItem('sqlgenie_openai_key') || '',
-  deploymentType: localStorage.getItem('sqlgenie_deployment_type') || 'standard',
   sqlDialect: localStorage.getItem('sqlgenie_sql_dialect') || 'postgresql',
   autoOptimize: localStorage.getItem('sqlgenie_auto_optimize') === 'true',
   autoExplain: localStorage.getItem('sqlgenie_auto_explain') === 'true',
   queryValidation: localStorage.getItem('sqlgenie_query_validation') === 'true',
-  preferredDatabase: localStorage.getItem('sqlgenie_preferred_database') || 'PostgreSQL',
-  connectionTimeout: Number(localStorage.getItem('sqlgenie_connection_timeout') || '30'),
-  queryPreview: localStorage.getItem('sqlgenie_query_preview') !== 'false',
-  autoSchemaRefresh: localStorage.getItem('sqlgenie_auto_schema_refresh') !== 'false',
-  sessionTimeout: Number(localStorage.getItem('sqlgenie_session_timeout') || '30'),
-  rememberDevice: localStorage.getItem('sqlgenie_remember_device') === 'true',
   wordWrap: localStorage.getItem('sqlgenie_word_wrap') !== 'false',
-  autoCompletion: localStorage.getItem('sqlgenie_auto_completion') !== 'false',
   syntaxHighlighting: localStorage.getItem('sqlgenie_syntax_highlighting') !== 'false',
   lineNumbers: localStorage.getItem('sqlgenie_line_numbers') !== 'false',
-  queryFormatting: localStorage.getItem('sqlgenie_query_formatting') !== 'false',
   notifyQueryCompletion: localStorage.getItem('sqlgenie_notify_query_completion') !== 'false',
   notifyErrorAlerts: localStorage.getItem('sqlgenie_notify_error_alerts') !== 'false',
-  notifySecurityAlerts: localStorage.getItem('sqlgenie_notify_security_alerts') !== 'false',
-  notifyProductUpdates: localStorage.getItem('sqlgenie_notify_product_updates') !== 'false',
   appearanceTheme: localStorage.getItem('theme') || 'dark',
   fontSize: localStorage.getItem('sqlgenie_font_size') || 'medium',
 }
@@ -85,24 +70,50 @@ export const Settings: React.FC = () => {
   const [modalAction, setModalAction] = useState<ModalAction>(null)
   const [apiKeyVisible, setApiKeyVisible] = useState(false)
 
-  const analytics = {
-    queriesGenerated: Number(localStorage.getItem('sqlgenie_analytics_queries_generated') || '154'),
-    queriesOptimized: Number(localStorage.getItem('sqlgenie_analytics_queries_optimized') || '87'),
-    schemasIndexed: Number(localStorage.getItem('sqlgenie_analytics_schemas_indexed') || '4'),
-    avgResponseTime: Number(localStorage.getItem('sqlgenie_analytics_avg_response_time') || '1.2'),
-  }
+  const [analytics, setAnalytics] = useState({
+    queriesGenerated: 0,
+    queriesOptimized: 0,
+    schemasIndexed: 0,
+    avgResponseTime: 0.0,
+  })
 
-  const dbStatus = [
-    { label: 'Schema Loaded', value: 'Active', icon: ShieldCheck },
-    { label: 'Connected', value: 'Live', icon: Activity },
-    { label: 'Last Synced', value: '2 min ago', icon: RefreshCcw },
-  ]
+  const [schemaStatus, setSchemaStatus] = useState({
+    loaded: false,
+    filename: '',
+    tablesCount: 0,
+  })
 
-  const securityStatus = [
-    { label: 'Current Session', value: 'This device', icon: Monitor },
-    { label: 'Last Login', value: '2 hours ago', icon: Clock3 },
-    { label: 'Account Security', value: 'Protected', icon: Shield },
-  ]
+  useEffect(() => {
+    const fetchStatusAndAnalytics = async () => {
+      try {
+        const [schemaRes, analyticsRes] = await Promise.all([
+          api.get('/schema/status'),
+          api.get('/query/analytics'),
+        ])
+        
+        if (schemaRes.data) {
+          setSchemaStatus({
+            loaded: schemaRes.data.tables_count > 0,
+            filename: schemaRes.data.filename || '',
+            tablesCount: schemaRes.data.tables_count || 0,
+          })
+        }
+        
+        if (analyticsRes.data && analyticsRes.data.data) {
+          const widgets = analyticsRes.data.data.widgets
+          setAnalytics({
+            queriesGenerated: widgets.totalQueries || 0,
+            queriesOptimized: widgets.executedQueries || 0,
+            schemasIndexed: schemaRes.data?.tables_count || 0,
+            avgResponseTime: (widgets.avgResponseTimeMs || 235) / 1000,
+          })
+        }
+      } catch (err) {
+        console.error('Error loading settings status/analytics:', err)
+      }
+    }
+    fetchStatusAndAnalytics()
+  }, [])
 
   const isDirty = useMemo(
     () =>
@@ -125,26 +136,15 @@ export const Settings: React.FC = () => {
   const persistSettings = () => {
     localStorage.setItem('sqlgenie_ai_provider', settings.provider)
     localStorage.setItem('sqlgenie_openai_key', settings.apiKey)
-    localStorage.setItem('sqlgenie_deployment_type', settings.deploymentType)
     localStorage.setItem('sqlgenie_sql_dialect', settings.sqlDialect)
     localStorage.setItem('sqlgenie_auto_optimize', String(settings.autoOptimize))
     localStorage.setItem('sqlgenie_auto_explain', String(settings.autoExplain))
     localStorage.setItem('sqlgenie_query_validation', String(settings.queryValidation))
-    localStorage.setItem('sqlgenie_preferred_database', settings.preferredDatabase)
-    localStorage.setItem('sqlgenie_connection_timeout', String(settings.connectionTimeout))
-    localStorage.setItem('sqlgenie_query_preview', String(settings.queryPreview))
-    localStorage.setItem('sqlgenie_auto_schema_refresh', String(settings.autoSchemaRefresh))
-    localStorage.setItem('sqlgenie_session_timeout', String(settings.sessionTimeout))
-    localStorage.setItem('sqlgenie_remember_device', String(settings.rememberDevice))
     localStorage.setItem('sqlgenie_word_wrap', String(settings.wordWrap))
-    localStorage.setItem('sqlgenie_auto_completion', String(settings.autoCompletion))
     localStorage.setItem('sqlgenie_syntax_highlighting', String(settings.syntaxHighlighting))
     localStorage.setItem('sqlgenie_line_numbers', String(settings.lineNumbers))
-    localStorage.setItem('sqlgenie_query_formatting', String(settings.queryFormatting))
     localStorage.setItem('sqlgenie_notify_query_completion', String(settings.notifyQueryCompletion))
     localStorage.setItem('sqlgenie_notify_error_alerts', String(settings.notifyErrorAlerts))
-    localStorage.setItem('sqlgenie_notify_security_alerts', String(settings.notifySecurityAlerts))
-    localStorage.setItem('sqlgenie_notify_product_updates', String(settings.notifyProductUpdates))
     localStorage.setItem('theme', settings.appearanceTheme)
     localStorage.setItem('sqlgenie_font_size', settings.fontSize)
   }
@@ -155,6 +155,7 @@ export const Settings: React.FC = () => {
     setSavedSettings({ ...settings })
     setSavedAt('Saved just now')
     showToast('Settings saved successfully.', 'success')
+    window.dispatchEvent(new Event('font-size-updated'))
   }
 
   const handleDiscard = () => {
@@ -189,6 +190,7 @@ export const Settings: React.FC = () => {
     setSavedSettings({ ...defaultSettings })
     setSavedAt('Saved just now')
     showToast('All settings reset to default values.', 'success')
+    window.dispatchEvent(new Event('font-size-updated'))
   }
 
   const handleConfirmAction = async () => {
@@ -231,7 +233,9 @@ export const Settings: React.FC = () => {
                   <ShieldCheck className="h-4 w-4 text-[#7c3aed]" />
                   Schema Loaded
                 </div>
-                <p className="mt-3 text-xl font-semibold text-foreground">Active</p>
+                <p className="mt-3 text-xl font-semibold text-foreground">
+                  {schemaStatus.loaded ? `Active (${schemaStatus.tablesCount} Tables)` : 'Pending'}
+                </p>
               </div>
               <div className="rounded-3xl border border-border bg-card/60 px-4 py-4 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 <div className="flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
@@ -245,7 +249,9 @@ export const Settings: React.FC = () => {
                   <RefreshCcw className="h-4 w-4 text-[#a855f7]" />
                   Last Sync
                 </div>
-                <p className="mt-3 text-xl font-semibold text-foreground">2 minutes ago</p>
+                <p className="mt-3 text-xl font-semibold text-foreground">
+                  {schemaStatus.loaded ? 'Synchronized' : 'Never'}
+                </p>
               </div>
             </div>
           </div>
@@ -289,39 +295,24 @@ export const Settings: React.FC = () => {
                 className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
               >
                 <option value="mock">Offline SQL Parser</option>
-                <option value="openai">OpenAI GPT-4o</option>
                 <option value="gemini">Google Gemini Pro</option>
               </select>
               <p className="text-xs text-slate-500">Choose the AI engine that powers SQL generation for your workspace.</p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Deployment Type</label>
-                <select
-                  value={settings.deploymentType}
-                  onChange={(e) => updateSetting('deploymentType', e.target.value as SettingsState['deploymentType'])}
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
-                >
-                  <option value="standard">Shared Sandbox</option>
-                  <option value="custom">Custom Provider</option>
-                </select>
-                <p className="text-xs text-slate-500">Select whether to use the built-in sandbox or your own provider key.</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">SQL Dialect</label>
-                <select
-                  value={settings.sqlDialect}
-                  onChange={(e) => updateSetting('sqlDialect', e.target.value as SettingsState['sqlDialect'])}
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
-                >
-                  <option value="mysql">MySQL</option>
-                  <option value="postgresql">PostgreSQL</option>
-                  <option value="sqlite">SQLite</option>
-                  <option value="sqlserver">SQL Server</option>
-                </select>
-                <p className="text-xs text-slate-500">Match generated SQL to the dialect used by your database.</p>
-              </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">SQL Dialect</label>
+              <select
+                value={settings.sqlDialect}
+                onChange={(e) => updateSetting('sqlDialect', e.target.value as SettingsState['sqlDialect'])}
+                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
+              >
+                <option value="mysql">MySQL</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="sqlite">SQLite</option>
+                <option value="sqlserver">SQL Server</option>
+              </select>
+              <p className="text-xs text-slate-500">Match generated SQL to the dialect used by your database.</p>
             </div>
 
             {settings.provider !== 'mock' && (
@@ -391,77 +382,41 @@ export const Settings: React.FC = () => {
             </div>
             <div>
               <h2 className="text-xl font-semibold text-foreground">Database Settings</h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Manage connection behavior and schema refresh for your database workflows.</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Active database schema structure loaded in your workspace context.</p>
             </div>
           </div>
 
           <div className="grid gap-4">
             <div className="flex flex-wrap gap-3">
-              {dbStatus.map((item) => (
-                <div key={item.label} className="flex min-w-[140px] items-center gap-3 rounded-3xl border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
-                  <item.icon className="h-4 w-4 text-[#8b5cf6]" />
+              <div className="flex min-w-[140px] items-center gap-3 rounded-3xl border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
+                <ShieldCheck className="h-4 w-4 text-[#8b5cf6]" />
+                <div>
+                  <p className="font-medium text-foreground">{schemaStatus.loaded ? 'Active' : 'Pending'}</p>
+                  <p className="text-xs text-slate-500">Schema Loaded</p>
+                </div>
+              </div>
+              <div className="flex min-w-[140px] items-center gap-3 rounded-3xl border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
+                <Activity className="h-4 w-4 text-[#8b5cf6]" />
+                <div>
+                  <p className="font-medium text-foreground">Live</p>
+                  <p className="text-xs text-slate-500">Connected</p>
+                </div>
+              </div>
+              {schemaStatus.loaded && (
+                <div className="flex min-w-[140px] items-center gap-3 rounded-3xl border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
+                  <RefreshCcw className="h-4 w-4 text-[#8b5cf6]" />
                   <div>
-                    <p className="font-medium text-foreground">{item.value}</p>
-                    <p className="text-xs text-slate-500">{item.label}</p>
+                    <p className="font-medium text-foreground truncate max-w-[120px]">{schemaStatus.filename}</p>
+                    <p className="text-xs text-slate-500">Active File</p>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Preferred Database</label>
-              <select
-                value={settings.preferredDatabase}
-                onChange={(e) => updateSetting('preferredDatabase', e.target.value as SettingsState['preferredDatabase'])}
-                className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
-              >
-                <option>PostgreSQL</option>
-                <option>MySQL</option>
-                <option>SQLite</option>
-                <option>SQL Server</option>
-                <option>MongoDB</option>
-              </select>
-              <p className="text-xs text-slate-500">Select the database that best matches your current project scope.</p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Connection Timeout</label>
-                <input
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={settings.connectionTimeout}
-                  onChange={(e) => updateSetting('connectionTimeout', Number(e.target.value))}
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
-                />
-                <p className="text-xs text-slate-500">Maximum wait time for database responses, measured in seconds.</p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Query Preview</label>
-                <div className="flex items-center gap-3 rounded-2xl border border-border bg-card/60 px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={settings.queryPreview}
-                    onChange={(e) => updateSetting('queryPreview', e.target.checked)}
-                    className="h-4 w-4 rounded border-border bg-background text-[#7c3aed]"
-                  />
-                  <span className="text-sm text-foreground">Preview queries before execution</span>
-                </div>
-                <p className="text-xs text-slate-500">See a final SQL preview before it is executed against your database.</p>
-              </div>
-            </div>
-
-            <label className="rounded-3xl border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={settings.autoSchemaRefresh}
-                onChange={(e) => updateSetting('autoSchemaRefresh', e.target.checked)}
-                className="mr-3 h-4 w-4 rounded border-border bg-background text-[#7c3aed]"
-              />
-              Auto Schema Refresh
-            </label>
-            <p className="text-xs text-slate-500">Refresh schema metadata automatically when your database changes.</p>
+            <p className="text-xs text-slate-500">
+              {schemaStatus.loaded 
+                ? `Genie has scanned and mapped ${schemaStatus.tablesCount} tables inside the schema file '${schemaStatus.filename}' for current AI SQL workspaces.`
+                : 'No database schema is active. Upload a CSV/XLSX or DDL .sql file in SQL Generator page to synchronize your DB structure.'}
+            </p>
           </div>
         </motion.section>
 
@@ -470,64 +425,6 @@ export const Settings: React.FC = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut', delay: 0.1 }}
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-primary">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Security Settings</h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Protect your workspace with session controls and activity visibility.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {securityStatus.map((item) => (
-                <div key={item.label} className="rounded-3xl border border-border bg-card/60 px-4 py-4 text-sm text-foreground">
-                  <div className="flex items-center gap-2 text-[#8b5cf6]">
-                    <item.icon className="h-4 w-4" />
-                    <span className="font-medium text-foreground">{item.value}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500">{item.label}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Session Timeout</label>
-                <select
-                  value={settings.sessionTimeout}
-                  onChange={(e) => updateSetting('sessionTimeout', Number(e.target.value))}
-                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
-                >
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes</option>
-                  <option value={60}>60 minutes</option>
-                </select>
-                <p className="text-xs text-slate-500">Automatically sign users out after inactivity.</p>
-              </div>
-
-              <label className="rounded-3xl border border-border bg-card/60 px-4 py-3 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={settings.rememberDevice}
-                  onChange={(e) => updateSetting('rememberDevice', e.target.checked)}
-                  className="mr-3 h-4 w-4 rounded border-border bg-background text-[#7c3aed]"
-                />
-                Remember this device
-              </label>
-              <p className="text-xs text-slate-500">Allow trusted devices to stay logged in longer.</p>
-            </div>
-          </div>
-        </motion.section>
-
-        <motion.section
-          className={cardBase}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: 'easeOut', delay: 0.15 }}
         >
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-primary">
@@ -544,7 +441,48 @@ export const Settings: React.FC = () => {
               <label key={option.key} className="group flex items-center justify-between rounded-3xl border border-border bg-card/60 px-4 py-4 transition hover:border-primary/20">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{option.label}</p>
-                  <p className="mt-1 text-xs text-slate-500">{option.key === 'queryFormatting' ? 'Auto-format generated SQL for readability.' : 'Enable this editor preference for SQL workflows.'}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {option.key === 'wordWrap' && 'Wrap long queries within view boundaries.'}
+                    {option.key === 'syntaxHighlighting' && 'Highlight SQL keyword structures in the editor preview.'}
+                    {option.key === 'lineNumbers' && 'Display absolute code line indices.'}
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={(settings as any)[option.key]}
+                  onChange={(e) => updateSetting(option.key, e.target.checked)}
+                  className="h-5 w-5 rounded border-border bg-background text-[#7c3aed]"
+                />
+              </label>
+            ))}
+          </div>
+        </motion.section>
+
+        <motion.section
+          className={cardBase}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut', delay: 0.15 }}
+        >
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-primary">
+              <Bell className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Notifications</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Choose which workspace events trigger toast notifications.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {notificationOptions.map((option) => (
+              <label key={option.key} className="flex items-center justify-between rounded-3xl border border-border bg-card/60 px-4 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{option.label}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {option.key === 'notifyQueryCompletion' && 'Show success toast when AI query output finishes.'}
+                    {option.key === 'notifyErrorAlerts' && 'Show warning toast on translation failure or network error.'}
+                  </p>
                 </div>
                 <input
                   type="checkbox"
@@ -565,45 +503,11 @@ export const Settings: React.FC = () => {
         >
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-primary">
-              <Bell className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Notifications</h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Choose which product alerts and status updates you receive.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-3">
-            {notificationOptions.map((option) => (
-              <label key={option.key} className="flex items-center justify-between rounded-3xl border border-border bg-card/60 px-4 py-4">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{option.label}</p>
-                  <p className="mt-1 text-xs text-slate-500">Manage notifications for Genie workflow events.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={(settings as any)[option.key]}
-                  onChange={(e) => updateSetting(option.key, e.target.checked)}
-                  className="h-5 w-5 rounded border-border bg-background text-[#7c3aed]"
-                />
-              </label>
-            ))}
-          </div>
-        </motion.section>
-
-        <motion.section
-          className={cardBase}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: 'easeOut', delay: 0.25 }}
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-primary">
               <Activity className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-foreground">Usage Analytics</h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Quick metrics to understand how Genie is being used.</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Live telemetry dashboard showing workspace performance.</p>
             </div>
           </div>
 
@@ -616,37 +520,37 @@ export const Settings: React.FC = () => {
                 </div>
                 <Zap className="h-5 w-5 text-[#a855f7]" />
               </div>
-              <p className="mt-4 text-xs text-slate-500">+12% from last week</p>
+              <p className="mt-4 text-xs text-slate-500">Total translations processed</p>
             </div>
             <div className="rounded-3xl border border-border bg-card/60 px-5 py-5 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-primary/20">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-3xl font-semibold text-foreground">{analytics.queriesOptimized}</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Queries Optimized</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Optimized Runs</p>
                 </div>
                 <Activity className="h-5 w-5 text-[#38bdf8]" />
               </div>
-              <p className="mt-4 text-xs text-slate-500">+8% better efficiency</p>
+              <p className="mt-4 text-xs text-slate-500">High efficiency suggestions</p>
             </div>
             <div className="rounded-3xl border border-border bg-card/60 px-5 py-5 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-primary/20">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-3xl font-semibold text-foreground">{analytics.schemasIndexed}</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Schemas Indexed</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Tables Indexed</p>
                 </div>
                 <Database className="h-5 w-5 text-[#22c55e]" />
               </div>
-              <p className="mt-4 text-xs text-slate-500">Updated as schema scanning runs</p>
+              <p className="mt-4 text-xs text-slate-500">Scan schema catalogs cataloged</p>
             </div>
             <div className="rounded-3xl border border-border bg-card/60 px-5 py-5 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-primary/20">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-3xl font-semibold text-foreground">{analytics.avgResponseTime}s</p>
+                  <p className="text-3xl font-semibold text-foreground">{analytics.avgResponseTime.toFixed(3)}s</p>
                   <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Avg Response Time</p>
                 </div>
                 <RefreshCcw className="h-5 w-5 text-[#facc15]" />
               </div>
-              <p className="mt-4 text-xs text-slate-500">Stable performance trends</p>
+              <p className="mt-4 text-xs text-slate-500">Stable API connection latency</p>
             </div>
           </div>
         </motion.section>
@@ -655,7 +559,7 @@ export const Settings: React.FC = () => {
           className={cardBase}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: 'easeOut', delay: 0.3 }}
+          transition={{ duration: 0.35, ease: 'easeOut', delay: 0.25 }}
         >
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7c3aed]/10 text-primary">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Database, Network, Settings as SettingsIcon, LogOut, User as UserIcon } from 'lucide-react'
+import { Database, Settings as SettingsIcon, LogOut, User as UserIcon } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from './AuthContext'
 import api from '../services/api'
@@ -40,22 +40,14 @@ export const Navbar: React.FC = () => {
               Genie
             </span>
           </Link>
-          <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-border ml-2">
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-              status?.rag_status === 'Loaded'
-                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
-                : 'bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400'
-            }`}>
-              <Network className="h-3.5 w-3.5" />
-              <span>RAG: {status?.rag_status || 'Pending'}</span>
-            </div>
-            {status?.tables_count !== undefined && status.tables_count > 0 && (
+          {status?.tables_count !== undefined && status.tables_count > 0 && (
+            <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-border ml-2">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-violet-500/10 border-violet-500/25 text-violet-600 dark:text-violet-400 animate-fade-in">
                 <Database className="h-3.5 w-3.5" />
                 <span>{status.tables_count} Tables Active</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3.5">
           <ThemeToggle />

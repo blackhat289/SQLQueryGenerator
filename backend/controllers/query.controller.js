@@ -253,7 +253,15 @@ const explainQueryMechanics = (sql, schemaTables = {}) => {
 // @access  Private
 exports.generateSql = async (req, res, next) => {
   try {
-    const { prompt, chatHistory = [] } = req.body;
+    const {
+      prompt,
+      chatHistory = [],
+      provider,
+      apiKey,
+      autoOptimize,
+      autoExplain,
+      queryValidation,
+    } = req.body;
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({
@@ -283,7 +291,9 @@ exports.generateSql = async (req, res, next) => {
     let usedAi = false;
 
     // 2. LLM-Based Text-to-SQL Generation using Gemini
-    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key' && process.env.ENABLE_AI_SQL_GENERATION !== 'false') {
+    const isMock = provider === 'mock';
+    const hasKey = apiKey || (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key');
+    if (!isMock && hasKey && process.env.ENABLE_AI_SQL_GENERATION !== 'false') {
       try {
         const systemInstruction = promptService.getSqlSystemInstruction();
         // Build prompt using the stored schema tables
@@ -293,7 +303,7 @@ exports.generateSql = async (req, res, next) => {
           ? userPromptText + '\n\nAdditional context from user\'s uploaded file:\n' + fullPrompt.substring(schemaSepIdx + 2)
           : userPromptText;
         
-        let aiGeneratedSql = await geminiService.generateText(finalPrompt, systemInstruction);
+        let aiGeneratedSql = await geminiService.generateText(finalPrompt, systemInstruction, apiKey);
         // Clean markdown code blocks from the generated response
         aiGeneratedSql = aiGeneratedSql.replace(/```sql/gi, '').replace(/```/gi, '').trim();
 
@@ -312,11 +322,14 @@ exports.generateSql = async (req, res, next) => {
     }
 
     // 3. Query Validation Engine
-    const validation = await sqlValidatorService.validateSql(sql, schema.tables);
+    let validation = { isValid: true, errorReason: null };
+    if (queryValidation !== false) {
+      validation = await sqlValidatorService.validateSql(sql, schema.tables);
+    }
 
     // 4. AI SQL Optimization Assistant
     let optimization;
-    if (process.env.ENABLE_QUERY_OPTIMIZATION !== 'false') {
+    if (autoOptimize !== false && process.env.ENABLE_QUERY_OPTIMIZATION !== 'false') {
       optimization = await sqlOptimizerService.analyzeAndOptimize(sql, schema.tables);
     } else {
       optimization = {
@@ -328,16 +341,26 @@ exports.generateSql = async (req, res, next) => {
     }
 
     // 5. Rule-based Query Explanation (skip Gemini call to conserve quota for SQL generation)
-    const stepMechanics = explainQueryMechanics(sql, schema.tables);
-    const explanationText = stepMechanics.map((s) => s.description).join(' ');
-
-    const explanation = [
+    let explanationText = 'SQL query explanation is currently disabled in your settings.';
+    let explanation = [
       {
         step: 'Execution Plan',
         action: 'AI Query Explanation',
         description: explanationText,
       },
     ];
+    if (autoExplain !== false) {
+      const stepMechanics = explainQueryMechanics(sql, schema.tables);
+      explanationText = stepMechanics.map((s) => s.description).join(' ');
+
+      explanation = [
+        {
+          step: 'Execution Plan',
+          action: 'AI Query Explanation',
+          description: explanationText,
+        },
+      ];
+    }
 
     const tablesUsed = Object.keys(schema.tables).filter((t) =>
       sql.toUpperCase().includes(t.toUpperCase())

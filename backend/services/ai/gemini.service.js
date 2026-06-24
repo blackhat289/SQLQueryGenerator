@@ -26,8 +26,8 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * @param {string} systemInstruction Optional system instruction/persona constraints
  * @returns {Promise<string>} Generated text response
  */
-exports.generateText = async (prompt, systemInstruction = '') => {
-  const apiKey = process.env.GEMINI_API_KEY;
+exports.generateText = async (prompt, systemInstruction = '', customApiKey = '') => {
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your_gemini_api_key') {
     console.warn('GEMINI_API_KEY (OpenRouter key) is not defined. Returning empty fallback response.');
     return '';
