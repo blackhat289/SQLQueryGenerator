@@ -262,6 +262,13 @@ exports.generateSql = async (req, res, next) => {
       });
     }
 
+    // Separate the natural language query from any inline schema hint appended by the frontend
+    const schemaSeparator = '\n\nDatabase Schema from uploaded file';
+    const schemaSepIdx = prompt.indexOf(schemaSeparator);
+    const naturalQuery = schemaSepIdx !== -1 ? prompt.substring(0, schemaSepIdx).trim() : prompt.trim();
+    // The full prompt (with inline schema hint) is sent to Gemini for context
+    const fullPrompt = prompt.trim();
+
     // Load active user schema or fall back to default
     let schema = await SchemaCatalog.findOne({ user: req.user.id });
     if (!schema) {
@@ -270,18 +277,23 @@ exports.generateSql = async (req, res, next) => {
     }
 
     // 1. RAG Schema Retrieval
-    const { relevantTables, logStatus } = await retrievalService.retrieveRelevantSchema(prompt, req.user.id);
+    const { relevantTables, logStatus } = await retrievalService.retrieveRelevantSchema(naturalQuery, req.user.id);
 
     let sql = '';
     let usedAi = false;
 
     // 2. LLM-Based Text-to-SQL Generation using Gemini
-    if (process.env.GEMINI_API_KEY && process.env.ENABLE_AI_SQL_GENERATION !== 'false') {
+    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key' && process.env.ENABLE_AI_SQL_GENERATION !== 'false') {
       try {
         const systemInstruction = promptService.getSqlSystemInstruction();
-        const userPrompt = promptService.buildSqlPrompt(prompt, relevantTables, schema.relationships, chatHistory);
+        // Build prompt using the stored schema tables
+        const userPromptText = promptService.buildSqlPrompt(naturalQuery, relevantTables, schema.relationships, chatHistory);
+        // If frontend sent inline schema hint, append it so Gemini also has that context
+        const finalPrompt = schemaSepIdx !== -1
+          ? userPromptText + '\n\nAdditional context from user\'s uploaded file:\n' + fullPrompt.substring(schemaSepIdx + 2)
+          : userPromptText;
         
-        let aiGeneratedSql = await geminiService.generateText(userPrompt, systemInstruction);
+        let aiGeneratedSql = await geminiService.generateText(finalPrompt, systemInstruction);
         // Clean markdown code blocks from the generated response
         aiGeneratedSql = aiGeneratedSql.replace(/```sql/gi, '').replace(/```/gi, '').trim();
 
@@ -296,7 +308,7 @@ exports.generateSql = async (req, res, next) => {
 
     // Fallback to rule-based query parser if AI is offline or key is missing
     if (!sql) {
-      sql = generateSqlFromPrompt(prompt, schema.tables);
+      sql = generateSqlFromPrompt(naturalQuery, schema.tables || {});
     }
 
     // 3. Query Validation Engine
@@ -315,14 +327,9 @@ exports.generateSql = async (req, res, next) => {
       };
     }
 
-    // 5. AI Query Explanation
-    let explanationText = '';
-    if (usedAi && process.env.GEMINI_API_KEY && process.env.ENABLE_QUERY_EXPLANATION !== 'false') {
-      explanationText = await explanationService.explainSqlQuery(sql, schema.tables);
-    } else {
-      const stepMechanics = explainQueryMechanics(sql, schema.tables);
-      explanationText = stepMechanics.map((s) => s.description).join(' ');
-    }
+    // 5. Rule-based Query Explanation (skip Gemini call to conserve quota for SQL generation)
+    const stepMechanics = explainQueryMechanics(sql, schema.tables);
+    const explanationText = stepMechanics.map((s) => s.description).join(' ');
 
     const explanation = [
       {
@@ -339,7 +346,7 @@ exports.generateSql = async (req, res, next) => {
     // Save record to DB history
     const queryLog = await Query.create({
       user: req.user.id,
-      nlQuery: prompt,
+      nlQuery: naturalQuery,
       sqlQuery: sql,
       explanation: explanationText,
       complexity: optimization.complexity,

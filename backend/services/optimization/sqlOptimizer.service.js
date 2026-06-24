@@ -1,6 +1,5 @@
-const geminiService = require('../ai/gemini.service');
-
 /**
+ * SQL Optimizer service — rule-based analysis (no LLM call to conserve API quota).
  * Analyzes SQL queries for inefficiencies and generates optimization insights and complexity.
  * @param {string} sql 
  * @param {Object} schemaTables 
@@ -18,7 +17,7 @@ exports.analyzeAndOptimize = async (sql, schemaTables) => {
       suggestions.push('Avoid using SELECT *. Explicitly list only the columns you need to optimize database read performance and network transport.');
     }
 
-    if (sqlUpper.includes('JOIN') && !sqlUpper.includes('ON')) {
+    if (sqlUpper.includes('JOIN') && !sqlUpper.includes(' ON ')) {
       score -= 20;
       suggestions.push('Detected potential Cartesian product (cross join) without ON join keys. Always specify key equality mappings.');
     }
@@ -33,42 +32,16 @@ exports.analyzeAndOptimize = async (sql, schemaTables) => {
       suggestions.push('Subqueries with IN clauses can lead to poor execution paths. Consider refactoring with INNER JOIN or EXISTS.');
     }
 
-    // --- AI-DRIVEN METRIC ANALYSIS ---
-    const schemaText = JSON.stringify(schemaTables);
-    const systemInstruction = `You are a database tuning advisor. Analyze the user's SQL query based on the database schema.
-Suggest concrete improvements (e.g. indexing columns, refactoring nested queries) and estimate its complexity (Easy, Medium, Hard).
-Output ONLY a JSON payload matching this structure:
-{
-  "complexity": "Easy" | "Medium" | "Hard",
-  "suggestions": ["suggestion 1", "suggestion 2"],
-  "rating": "Excellent" | "Good" | "Needs Attention"
-}`;
-
-    const prompt = `Schema: ${schemaText}\nQuery: ${sql}`;
-    const responseText = await geminiService.generateText(prompt, systemInstruction);
+    // --- RULE-BASED COMPLEXITY ---
+    const joins = (sqlUpper.match(/JOIN/g) || []).length;
+    const groupBys = (sqlUpper.match(/GROUP BY/g) || []).length;
+    const subqueries = Math.max(0, (sqlUpper.match(/SELECT/g) || []).length - 1);
 
     let complexity = 'Easy';
-    let aiRating = 'Excellent';
-
-    try {
-      const cleaned = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-      const parsed = JSON.parse(cleaned);
-      
-      if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
-        parsed.suggestions.forEach((s) => {
-          if (!suggestions.includes(s) && suggestions.length < 5) {
-            suggestions.push(s);
-          }
-        });
-      }
-      
-      complexity = parsed.complexity || 'Easy';
-      aiRating = parsed.rating || 'Excellent';
-    } catch (e) {
-      // Fallback complexity score if parsing failed
-      const joins = (sqlUpper.match(/JOIN/g) || []).length;
-      const groupBys = (sqlUpper.match(/GROUP BY/g) || []).length;
-      complexity = (joins > 1 || groupBys > 1) ? 'Hard' : (joins > 0 || groupBys > 0) ? 'Medium' : 'Easy';
+    if (joins > 2 || groupBys > 1 || subqueries > 1) {
+      complexity = 'Hard';
+    } else if (joins > 0 || groupBys > 0 || subqueries > 0) {
+      complexity = 'Medium';
     }
 
     if (suggestions.length === 0) {

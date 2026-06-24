@@ -35,36 +35,9 @@ exports.validateSql = async (sql, schemaTables) => {
       }
     }
 
-    // Secondary LLM Validation Check
-    const schemaText = JSON.stringify(schemaTables, null, 2);
-    const prompt = `Schema Catalog:
-${schemaText}
-
-Query to check:
-${sql}
-
-Task: Verify if the query refers ONLY to tables and columns defined in the Schema Catalog.
-Return JSON response structure:
-{
-  "isValid": true/false,
-  "errorReason": "string description of error if invalid, otherwise empty"
-}`;
-
-    const systemInstruction = 'You are a strict SQL syntax checker. You only output valid JSON matching the format { "isValid": boolean, "errorReason": "string" }. Do not add any markdown formatting or comments outside the JSON.';
-    const responseText = await geminiService.generateText(prompt, systemInstruction);
-
-    try {
-      // Clean potential JSON markdown wrapping
-      const cleaned = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-      const parsed = JSON.parse(cleaned);
-      return {
-        isValid: parsed.isValid,
-        errorReason: parsed.errorReason || undefined
-      };
-    } catch (e) {
-      // Fallback if LLM parsing failed
-      return { isValid: true };
-    }
+    // Lexical checks passed — skip secondary LLM validation to conserve Gemini API quota.
+    // The rule-based precheck above is sufficient for basic hallucination detection.
+    return { isValid: true };
   } catch (error) {
     console.error('SQL Validator Error:', error);
     return { isValid: true }; // Fallback to pass through on service failure

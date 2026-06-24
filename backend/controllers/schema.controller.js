@@ -5,51 +5,119 @@ const geminiService = require('../services/ai/gemini.service');
 const parseTablesFromDdl = (ddlText) => {
   const tables = {};
   
-  // Basic regex to find table blocks e.g. CREATE TABLE users ( ... );
-  const tableBlocks = ddlText.match(/CREATE\s+TABLE\s+(\w+)\s*\(([\s\S]*?)\);/gi);
-  if (!tableBlocks) return null;
+  // 1. Remove comments
+  let cleaned = ddlText;
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  cleaned = cleaned.split('\n').map(line => {
+    const idxDoubleDash = line.indexOf('--');
+    let cl = line;
+    if (idxDoubleDash !== -1) {
+      cl = cl.substring(0, idxDoubleDash);
+    }
+    const idxHash = cl.indexOf('#');
+    if (idxHash !== -1) {
+      cl = cl.substring(0, idxHash);
+    }
+    return cl;
+  }).join('\n');
 
-  tableBlocks.forEach((block) => {
-    // Extract table name
-    const nameMatch = block.match(/CREATE\s+TABLE\s+(\w+)/i);
-    if (!nameMatch) return;
+  // Replace all whitespace with single spaces to make matching easier
+  cleaned = cleaned.replace(/\s+/g, ' ');
+
+  // 2. Sequentially find all "CREATE TABLE" statements
+  const createTableRegex = /CREATE\s+TABLE\s+/gi;
+  let match;
+  
+  while ((match = createTableRegex.exec(cleaned)) !== null) {
+    const startIndex = match.index;
+    
+    // Grab a substring starting from "CREATE TABLE" to parse table name and body
+    const sub = cleaned.substring(startIndex);
+    
+    // Parse table name
+    const nameMatch = sub.match(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[`"'\w]+\.)?[`"']?([\w-]+)[`"']?/i);
+    if (!nameMatch) continue;
     const tableName = nameMatch[1];
     
-    // Extract columns
-    const bodyMatch = block.match(/\(([\s\S]*?)\);/i);
-    if (!bodyMatch) return;
-    const body = bodyMatch[1];
+    // Find the opening parenthesis of the body
+    const openParenIdx = sub.indexOf('(');
+    if (openParenIdx === -1) continue;
     
-    const lines = body.split(',');
-    const columns = [];
-    
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      const tokens = trimmed.split(/\s+/);
-      if (tokens.length > 0 && tokens[0]) {
-        const tokenUpper = tokens[0].toUpperCase();
-        // Ignore keywords/constraints
-        if (!['CONSTRAINT', 'PRIMARY', 'FOREIGN', 'KEY', 'UNIQUE', 'INDEX', 'CHECK'].includes(tokenUpper)) {
-          const colName = tokens[0].replace(/[`"']/g, '').trim();
-          if (colName && !colName.includes('(')) {
-            columns.push(colName);
-          }
+    // Find matching closing parenthesis
+    let bracketCount = 1;
+    let closeParenIdx = -1;
+    for (let i = openParenIdx + 1; i < sub.length; i++) {
+      if (sub[i] === '(') {
+        bracketCount++;
+      } else if (sub[i] === ')') {
+        bracketCount--;
+        if (bracketCount === 0) {
+          closeParenIdx = i;
+          break;
         }
       }
-    });
+    }
+    
+    if (closeParenIdx === -1) continue;
+    
+    const innerContent = sub.substring(openParenIdx + 1, closeParenIdx).trim();
+    
+    // Split columns by comma, ignoring nested commas inside parentheses
+    const parts = [];
+    let currentPart = '';
+    let parenDepth = 0;
+    for (let i = 0; i < innerContent.length; i++) {
+      const char = innerContent[i];
+      if (char === '(') {
+        parenDepth++;
+        currentPart += char;
+      } else if (char === ')') {
+        parenDepth--;
+        currentPart += char;
+      } else if (char === ',' && parenDepth === 0) {
+        parts.push(currentPart.trim());
+        currentPart = '';
+      } else {
+        currentPart += char;
+      }
+    }
+    if (currentPart.trim()) {
+      parts.push(currentPart.trim());
+    }
+    
+    const columns = [];
+    const constraintKeywords = ['PRIMARY', 'FOREIGN', 'KEY', 'CONSTRAINT', 'UNIQUE', 'INDEX', 'CHECK'];
+    
+    for (const part of parts) {
+      if (!part) continue;
+      const tokens = part.trim().split(/\s+/);
+      const firstToken = tokens[0].toUpperCase();
+      
+      if (constraintKeywords.includes(firstToken)) {
+        continue;
+      }
+      
+      const columnName = tokens[0].replace(/[`"'\s\[\]]/g, '');
+      if (columnName && !columnName.includes('(')) {
+        columns.push(columnName);
+      }
+    }
     
     if (tableName && columns.length > 0) {
       tables[tableName] = columns;
     }
-  });
-
+    
+    // Move regex index forward to avoid infinite loops and find other tables
+    createTableRegex.lastIndex = startIndex + closeParenIdx + 1;
+  }
+  
   return Object.keys(tables).length > 0 ? tables : null;
 };
 
 // Use Gemini to infer schema metadata, relationships, and descriptions
 const inferSchemaMetadata = async (schemaTables, rawSql = '') => {
   try {
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key') {
       return { descriptions: {}, relationships: [] };
     }
 
@@ -140,12 +208,10 @@ exports.uploadSchema = async (req, res, next) => {
       });
     }
 
-    // Call Gemini to enrich schema descriptions and relations if not already provided
-    if (relationships.length === 0 && Object.keys(descriptions).length === 0) {
-      const metadata = await inferSchemaMetadata(parsedTables, text);
-      relationships = metadata.relationships || [];
-      descriptions = metadata.descriptions || {};
-    }
+    // Skip AI schema inference to conserve Gemini API quota.
+    // The table/column structure is sufficient for query generation.
+    relationships = [];
+    descriptions = {};
 
     let schema = await SchemaCatalog.findOne({ user: req.user.id });
     if (schema) {

@@ -29,9 +29,15 @@ interface SchemaColumn {
   type: string
 }
 
+interface SchemaTable {
+  tableName: string
+  columns: SchemaColumn[]
+}
+
 interface SchemaPreview {
   tableName: string
   columns: SchemaColumn[]
+  tables?: SchemaTable[]
 }
 
 type DatasetRow = Record<string, string | number>
@@ -120,12 +126,117 @@ export const SQLGenerator: React.FC = () => {
   }
 
   const parseSQLSchema = (schemaText: string): SchemaPreview => {
-    const cleaned = schemaText.replace(/\r/g, ' ').replace(/\n/g, ' ')
-    const tableMatch = cleaned.match(/CREATE\s+TABLE\s+[`\"']?([\w-]+)/i)
-    const tableName = tableMatch ? tableMatch[1] : 'uploaded_table'
-    const columnMatches = Array.from(cleaned.matchAll(/\b([\w_]+)\s+([A-Za-z0-9()]+)(?:\s+NOT\s+NULL|\s+NULL|\s+DEFAULT[^,]*)?/gi))
-    const columns = columnMatches.map((match) => ({ name: match[1], type: match[2].toUpperCase() }))
-    return { tableName, columns: columns.length ? columns : [{ name: 'id', type: 'INTEGER' }] }
+    // 1. Remove comments
+    let cleaned = schemaText;
+    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    cleaned = cleaned.split('\n').map(line => {
+      const idxDoubleDash = line.indexOf('--');
+      let cl = line;
+      if (idxDoubleDash !== -1) {
+        cl = cl.substring(0, idxDoubleDash);
+      }
+      const idxHash = cl.indexOf('#');
+      if (idxHash !== -1) {
+        cl = cl.substring(0, idxHash);
+      }
+      return cl;
+    }).join('\n');
+
+    cleaned = cleaned.replace(/\s+/g, ' ');
+
+    const tables: SchemaTable[] = [];
+    const createTableRegex = /CREATE\s+TABLE\s+/gi;
+    let match;
+
+    while ((match = createTableRegex.exec(cleaned)) !== null) {
+      const startIndex = match.index;
+      const sub = cleaned.substring(startIndex);
+
+      // Parse table name
+      const nameMatch = sub.match(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[`"'\w]+\.)?[`"']?([\w-]+)[`"']?/i);
+      if (!nameMatch) continue;
+      const tableName = nameMatch[1];
+
+      // Find the opening parenthesis of the body
+      const openParenIdx = sub.indexOf('(');
+      if (openParenIdx === -1) continue;
+
+      // Find matching closing parenthesis
+      let bracketCount = 1;
+      let closeParenIdx = -1;
+      for (let i = openParenIdx + 1; i < sub.length; i++) {
+        if (sub[i] === '(') {
+          bracketCount++;
+        } else if (sub[i] === ')') {
+          bracketCount--;
+          if (bracketCount === 0) {
+            closeParenIdx = i;
+            break;
+          }
+        }
+      }
+
+      if (closeParenIdx === -1) continue;
+
+      const innerContent = sub.substring(openParenIdx + 1, closeParenIdx).trim();
+
+      // Split columns by comma, ignoring nested commas inside parentheses
+      const parts: string[] = [];
+      let currentPart = '';
+      let parenDepth = 0;
+      for (let i = 0; i < innerContent.length; i++) {
+        const char = innerContent[i];
+        if (char === '(') {
+          parenDepth++;
+          currentPart += char;
+        } else if (char === ')') {
+          parenDepth--;
+          currentPart += char;
+        } else if (char === ',' && parenDepth === 0) {
+          parts.push(currentPart.trim());
+          currentPart = '';
+        } else {
+          currentPart += char;
+        }
+      }
+      if (currentPart.trim()) {
+        parts.push(currentPart.trim());
+      }
+
+      const columns: SchemaColumn[] = [];
+      const constraintKeywords = ['PRIMARY', 'FOREIGN', 'KEY', 'CONSTRAINT', 'UNIQUE', 'INDEX', 'CHECK'];
+
+      for (const part of parts) {
+        if (!part) continue;
+        const tokens = part.trim().split(/\s+/);
+        const firstToken = tokens[0].toUpperCase();
+
+        if (constraintKeywords.includes(firstToken)) {
+          continue;
+        }
+
+        const columnName = tokens[0].replace(/[`"'\s\[\]]/g, '');
+        if (!columnName) continue;
+
+        let columnType = tokens[1] || 'TEXT';
+        columnType = columnType.replace(/[`"'\s]/g, '').toUpperCase();
+
+        columns.push({ name: columnName, type: columnType });
+      }
+
+      if (tableName && columns.length > 0) {
+        tables.push({ tableName, columns });
+      }
+
+      // Move regex index forward to avoid infinite loops and find other tables
+      createTableRegex.lastIndex = startIndex + closeParenIdx + 1;
+    }
+
+    return {
+      tableName: tables[0]?.tableName || 'uploaded_table',
+      columns: tables[0]?.columns || [{ name: 'id', type: 'INTEGER' }],
+      tables: tables.length ? tables : [{ tableName: 'uploaded_table', columns: [{ name: 'id', type: 'INTEGER' }] }]
+    };
   }
 
   const detectSchema = (headers: string[], rows: string[][], tableName: string): SchemaPreview => {
@@ -134,7 +245,7 @@ export const SQLGenerator: React.FC = () => {
       const values = sampleRows.map((row) => String(row[index] ?? ''))
       return { name: header || `column_${index + 1}`, type: inferType(values) }
     })
-    return { tableName, columns }
+    return { tableName, columns, tables: [{ tableName, columns }] }
   }
 
   const saveDatasetState = (meta: DatasetMeta, schema: SchemaPreview | null, columns: string[], rows: DatasetRow[]) => {
@@ -204,8 +315,17 @@ export const SQLGenerator: React.FC = () => {
       } else if (extension === 'sql' || extension === 'ddl' || extension === 'txt') {
         const text = await file.text()
         schema = parseSQLSchema(text)
-        headers = schema.columns.map((column) => column.name)
+        headers = schema.tables ? schema.tables.flatMap((table) => table.columns.map((c) => c.name)) : schema.columns.map((column) => column.name)
         rows = []
+        // Auto-upload the SQL schema to the backend so query generation uses the correct tables
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          await api.post('/schema/upload', formData)
+        } catch (uploadErr) {
+          console.warn('Schema auto-upload to backend failed:', uploadErr)
+          // Non-fatal: user can still see schema preview; queries may use stale backend schema
+        }
       } else {
         throw new Error('Unsupported dataset format. Please upload CSV, Excel, or SQL schema files.')
       }
@@ -272,7 +392,11 @@ export const SQLGenerator: React.FC = () => {
 
   const enhancedPrompt = (prompt: string) => {
     if (!datasetMeta || !schemaPreview) return prompt
-    return `${prompt}\n\nUse the uploaded dataset table "${schemaPreview.tableName}" with columns ${schemaPreview.columns.map((c) => c.name).join(', ')}.`
+    const tables = schemaPreview.tables || [{ tableName: schemaPreview.tableName, columns: schemaPreview.columns }]
+    const schemaDescription = tables.map(
+      (t) => `Table "${t.tableName}" with columns: ${t.columns.map((c) => `${c.name} (${c.type})`).join(', ')}`
+    ).join('\n')
+    return `${prompt}\n\nDatabase Schema from uploaded file (${datasetMeta.name}):\n${schemaDescription}\n\nIMPORTANT: Use ONLY the tables and columns listed above. Do not invent or guess table/column names.`
   }
 
   const handleGenerate = async (prompt: string) => {
@@ -349,7 +473,7 @@ export const SQLGenerator: React.FC = () => {
                   onDragOver={handleDrag}
                   onDragLeave={handleDrag}
                   onDrop={handleDrop}
-                  className={`rounded-[1.75rem] border-2 p-8 text-center transition-all duration-300 ${
+                  className={`relative rounded-[1.75rem] border-2 p-8 text-center transition-all duration-300 ${
                     dragActive ? 'border-cyan-400 bg-cyan-500/10' : 'border-dashed border-border bg-secondary/30 hover:border-cyan-400'
                   }`}
                 >
@@ -426,19 +550,23 @@ export const SQLGenerator: React.FC = () => {
                   </span>
                 </button>
                 {schemaOpen && schemaPreview && (
-                  <div className="mt-5 space-y-4">
-                    <div className="rounded-3xl border border-border/70 bg-background p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Table</p>
-                      <p className="mt-2 text-lg font-semibold text-foreground">{schemaPreview.tableName}</p>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {schemaPreview.columns.map((column) => (
-                        <div key={column.name} className="rounded-3xl border border-border/70 bg-background p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{column.name}</p>
-                          <p className="mt-2 text-sm font-semibold text-foreground">{column.type}</p>
+                  <div className="mt-5 space-y-6">
+                    {(schemaPreview.tables || [{ tableName: schemaPreview.tableName, columns: schemaPreview.columns }]).map((table, idx) => (
+                      <div key={`${table.tableName}-${idx}`} className="space-y-3 border-t border-border/50 pt-6 first:border-t-0 first:pt-0">
+                        <div className="rounded-3xl border border-border/70 bg-background p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Table</p>
+                          <p className="mt-2 text-lg font-semibold text-foreground">{table.tableName}</p>
                         </div>
-                      ))}
-                    </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {table.columns.map((column) => (
+                            <div key={column.name} className="rounded-3xl border border-border/70 bg-background p-4">
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{column.name}</p>
+                              <p className="mt-2 text-sm font-semibold text-foreground">{column.type}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -463,7 +591,7 @@ export const SQLGenerator: React.FC = () => {
                     </div>
                   </div>
 
-                  {previewColumns.length === 0 ? (
+                  {previewRows.length === 0 || previewColumns.length === 0 ? (
                     <div className="rounded-3xl border border-dashed border-border bg-background p-8 text-center text-muted-foreground">
                       <FileText className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
                       <p className="text-sm font-semibold text-foreground">No preview data available</p>
@@ -615,7 +743,11 @@ export const SQLGenerator: React.FC = () => {
               </div>
               <div className="mt-6 rounded-3xl border border-border bg-secondary/40 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Preview schema</p>
-                <p className="mt-2 text-sm text-foreground">{schemaPreview?.tableName || 'Dataset'}</p>
+                <p className="mt-2 text-sm text-foreground">
+                  {schemaPreview?.tables && schemaPreview.tables.length > 0
+                    ? `${schemaPreview.tables.length} Table(s) Loaded`
+                    : schemaPreview?.tableName || 'Dataset'}
+                </p>
               </div>
             </div>
           ) : (

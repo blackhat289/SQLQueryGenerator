@@ -17,11 +17,12 @@ exports.retrieveRelevantSchema = async (prompt, userId) => {
 
     const tableNames = Object.keys(schema.tables);
 
-    // If RAG is explicitly disabled, bypass embedding search and send full schema catalog
-    if (process.env.ENABLE_RAG === 'false') {
+    // If RAG is explicitly disabled or Gemini API Key is not configured/placeholder, bypass embedding search and send full schema catalog
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (process.env.ENABLE_RAG === 'false' || !apiKey || apiKey === 'your_gemini_api_key') {
       return {
         relevantTables: schema.tables,
-        logStatus: 'RAG bypassed: Full schema catalog context loaded.'
+        logStatus: 'RAG bypassed (AI Key not configured): Full schema catalog context loaded.'
       };
     }
 
