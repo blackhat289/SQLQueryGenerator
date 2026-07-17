@@ -19,7 +19,7 @@ connectDB();
 const app = express();
 
 // Trust reverse proxy (needed for express-rate-limit to get client IP on Render/Heroku)
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 // Security Middleware setup
 app.use(helmet()); // Set secure HTTP response headers
