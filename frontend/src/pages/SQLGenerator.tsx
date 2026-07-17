@@ -14,7 +14,7 @@ import { AIExplanationCard } from '../components/AIExplanationCard'
 import api from '../services/api'
 import { GenerateResponse } from '../types'
 import { useToast } from '../components/ToastNotifications'
-import { Terminal, Cpu, FileText, UploadCloud, ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Terminal, Cpu, UploadCloud, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface DatasetMeta {
   name: string
@@ -48,12 +48,6 @@ export const SQLGenerator: React.FC = () => {
   const [datasetFile, setDatasetFile] = useState<File | null>(null)
   const [datasetMeta, setDatasetMeta] = useState<DatasetMeta | null>(null)
   const [schemaPreview, setSchemaPreview] = useState<SchemaPreview | null>(null)
-  const [previewColumns, setPreviewColumns] = useState<string[]>([])
-  const [previewRows, setPreviewRows] = useState<DatasetRow[]>([])
-  const [datasetSearch, setDatasetSearch] = useState('')
-  const [datasetPage, setDatasetPage] = useState(1)
-  const [datasetSortKey, setDatasetSortKey] = useState<string | null>(null)
-  const [datasetSortDirection, setDatasetSortDirection] = useState<'asc' | 'desc'>('asc')
   const [dragActive, setDragActive] = useState(false)
   const [schemaOpen, setSchemaOpen] = useState(true)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -248,8 +242,8 @@ export const SQLGenerator: React.FC = () => {
     return { tableName, columns, tables: [{ tableName, columns }] }
   }
 
-  const saveDatasetState = (meta: DatasetMeta, schema: SchemaPreview | null, columns: string[], rows: DatasetRow[]) => {
-    const payload = { meta, schema, columns, rows }
+  const saveDatasetState = (meta: DatasetMeta, schema: SchemaPreview | null) => {
+    const payload = { meta, schema }
     localStorage.setItem('sqlgenie_uploaded_dataset', JSON.stringify(payload))
   }
 
@@ -257,12 +251,6 @@ export const SQLGenerator: React.FC = () => {
     setDatasetFile(null)
     setDatasetMeta(null)
     setSchemaPreview(null)
-    setPreviewColumns([])
-    setPreviewRows([])
-    setDatasetSearch('')
-    setDatasetPage(1)
-    setDatasetSortKey(null)
-    setDatasetSortDirection('asc')
     setUploadError(null)
     localStorage.removeItem('sqlgenie_uploaded_dataset')
   }
@@ -275,8 +263,6 @@ export const SQLGenerator: React.FC = () => {
       const parsed = JSON.parse(stored)
       setDatasetMeta(parsed.meta)
       setSchemaPreview(parsed.schema)
-      setPreviewColumns(parsed.columns || [])
-      setPreviewRows(parsed.rows || [])
     } catch (error) {
       console.error('Unable to parse stored dataset.', error)
     }
@@ -334,18 +320,7 @@ export const SQLGenerator: React.FC = () => {
       fileMeta.columns = headers.length
       setDatasetMeta(fileMeta)
       setSchemaPreview(schema)
-      setPreviewColumns(headers)
-      const mappedRows = rows.slice(0, 10).map((row) =>
-        headers.reduce<DatasetRow>((acc, header, idx) => {
-          acc[header] = row[idx] ?? ''
-          return acc
-        }, {})
-      )
-      setPreviewRows(mappedRows)
-      saveDatasetState(fileMeta, schema, headers, mappedRows)
-      setDatasetPage(1)
-      setDatasetSortKey(null)
-      setDatasetSortDirection('asc')
+      saveDatasetState(fileMeta, schema)
     } catch (error: any) {
       setUploadError(error.message || 'Could not process the uploaded dataset.')
     }
@@ -366,29 +341,7 @@ export const SQLGenerator: React.FC = () => {
     }
   }
 
-  const filteredDatasetRows = useMemo(() => {
-    if (!datasetSearch.trim()) return previewRows
-    return previewRows.filter((row) =>
-      previewColumns.some((col) => row[col]?.toString().toLowerCase().includes(datasetSearch.toLowerCase()))
-    )
-  }, [datasetSearch, previewRows, previewColumns])
 
-  const sortedDatasetRows = useMemo(() => {
-    if (!datasetSortKey) return filteredDatasetRows
-    return [...filteredDatasetRows].sort((left, right) => {
-      const leftValue = left[datasetSortKey] ?? ''
-      const rightValue = right[datasetSortKey] ?? ''
-      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
-        return datasetSortDirection === 'asc' ? leftValue - rightValue : rightValue - leftValue
-      }
-      return datasetSortDirection === 'asc'
-        ? String(leftValue).localeCompare(String(rightValue))
-        : String(rightValue).localeCompare(String(leftValue))
-    })
-  }, [filteredDatasetRows, datasetSortDirection, datasetSortKey])
-
-  const currentDatasetRows = sortedDatasetRows.slice((datasetPage - 1) * 10, datasetPage * 10)
-  const datasetTotalPages = Math.max(1, Math.ceil(sortedDatasetRows.length / 10))
 
   const enhancedPrompt = (prompt: string) => {
     const dialect = localStorage.getItem('sqlgenie_sql_dialect') || 'postgresql'
@@ -598,103 +551,7 @@ export const SQLGenerator: React.FC = () => {
               </div>
             )}
 
-            <div className="mt-6 rounded-[1.75rem] border border-border bg-card p-5">
-              {datasetMeta ? (
-                <>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dataset preview</p>
-                      <h3 className="mt-2 text-lg font-semibold text-foreground">First 10 rows</h3>
-                    </div>
-                    <div className="relative w-full sm:w-52">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        value={datasetSearch}
-                        onChange={(e) => { setDatasetSearch(e.target.value); setDatasetPage(1) }}
-                        placeholder="Search preview"
-                        className="w-full rounded-2xl border border-border/80 bg-background py-3 pl-10 pr-4 text-sm text-foreground outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
-                      />
-                    </div>
-                  </div>
 
-                  {previewRows.length === 0 || previewColumns.length === 0 ? (
-                    <div className="rounded-3xl border border-dashed border-border bg-background p-8 text-center text-muted-foreground">
-                      <FileText className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-                      <p className="text-sm font-semibold text-foreground">No preview data available</p>
-                      <p className="mt-2 text-sm text-muted-foreground">This file type contains only schema definitions or no data rows.</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-hidden rounded-[1.75rem] border border-border bg-background">
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-border text-sm text-left">
-                          <thead className="bg-secondary/40 text-muted-foreground">
-                            <tr>
-                              {previewColumns.map((column) => (
-                                <th
-                                  key={column}
-                                  onClick={() => {
-                                    if (datasetSortKey === column) {
-                                      setDatasetSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
-                                    } else {
-                                      setDatasetSortKey(column)
-                                      setDatasetSortDirection('asc')
-                                    }
-                                  }}
-                                  className="cursor-pointer px-4 py-3 font-semibold uppercase tracking-[0.12em] text-muted-foreground transition hover:text-cyan-500"
-                                >
-                                  <div className="flex items-center gap-1">
-                                    {column}
-                                    {datasetSortKey === column ? (datasetSortDirection === 'asc' ? '▲' : '▼') : ''}
-                                  </div>
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border bg-card">
-                            {currentDatasetRows.map((row, rowIndex) => (
-                              <tr key={rowIndex} className="transition hover:bg-secondary/50">
-                                {previewColumns.map((column) => (
-                                  <td key={column} className="px-4 py-3 text-foreground">{row[column]}</td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="flex flex-col gap-3 border-t border-border bg-secondary/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                          Showing {currentDatasetRows.length} of {sortedDatasetRows.length} rows
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDatasetPage((value) => Math.max(1, value - 1))}
-                            disabled={datasetPage === 1}
-                            className="rounded-2xl border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition hover:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Previous
-                          </button>
-                          <span className="text-xs text-muted-foreground">{datasetPage}/{datasetTotalPages}</span>
-                          <button
-                            type="button"
-                            onClick={() => setDatasetPage((value) => Math.min(datasetTotalPages, value + 1))}
-                            disabled={datasetPage === datasetTotalPages}
-                            className="rounded-2xl border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition hover:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="rounded-[1.75rem] border border-dashed border-border bg-card p-12 text-center text-muted-foreground">
-                  <p className="text-lg font-semibold text-foreground">Upload a dataset to start asking questions.</p>
-                  <p className="mt-2 text-sm leading-6">Once a dataset is uploaded, Genie will detect the schema, preview rows, and allow dataset-focused prompts.</p>
-                </div>
-              )}
-            </div>
           </section>
 
           <QueryInput

@@ -372,9 +372,8 @@ export const Login: React.FC = () => {
                       id="email"
                       type="email"
                       placeholder="name@company.com"
-                      className={`w-full rounded-3xl border px-4 py-4 pl-12 text-sm text-white outline-none transition duration-200 focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/30 ${
-                        errors.email ? 'border-rose-500 text-white' : 'border-white/10 bg-[#020413]'
-                      }`}
+                      className={`w-full rounded-3xl border px-4 py-4 pl-12 text-sm text-white outline-none transition duration-200 focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/30 ${errors.email ? 'border-rose-500 text-white' : 'border-white/10 bg-[#020413]'
+                        }`}
                       {...register('email', {
                         required: 'Please enter your email',
                         pattern: {
@@ -399,9 +398,8 @@ export const Login: React.FC = () => {
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
-                      className={`w-full rounded-3xl border px-4 py-4 pl-12 pr-12 text-sm text-white outline-none transition duration-200 focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/30 ${
-                        errors.password ? 'border-rose-500 text-white' : 'border-white/10 bg-[#020413]'
-                      }`}
+                      className={`w-full rounded-3xl border px-4 py-4 pl-12 pr-12 text-sm text-white outline-none transition duration-200 focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/30 ${errors.password ? 'border-rose-500 text-white' : 'border-white/10 bg-[#020413]'
+                        }`}
                       {...register('password', {
                         required: 'Password is required',
                       })}
@@ -430,12 +428,12 @@ export const Login: React.FC = () => {
                     />
                     Remember me
                   </label>
-                   <Link to="/forgotpassword" className="font-semibold text-[#a855f7] transition hover:text-[#d8b4fe]">
+                  <Link to="/forgotpassword" className="font-semibold text-[#a855f7] transition hover:text-[#d8b4fe]">
                     Forgot password?
                   </Link>
                 </div>
 
-                 <button
+                <button
                   type="submit"
                   disabled={submitting}
                   className="w-full rounded-3xl bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#d8b4fe] px-5 py-4 text-sm font-semibold text-white shadow-[0_24px_60px_-30px_rgba(124,58,237,0.9)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_30px_90px_-30px_rgba(168,85,247,0.7)] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -485,7 +483,7 @@ export const Login: React.FC = () => {
 
                 <div className="text-center text-xs text-slate-500">
                   Don&apos;t have an account?{' '}
-                   <Link to="/register" className="font-semibold text-[#a855f7] hover:text-[#d8b4fe]">
+                  <Link to="/register" className="font-semibold text-[#a855f7] hover:text-[#d8b4fe]">
                     Sign up
                   </Link>
                 </div>
