@@ -6,6 +6,7 @@ import { useAuth } from '../components/AuthContext';
 import { useToast } from '../components/ToastNotifications';
 import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 import { Mail, Lock, Eye, EyeOff, Sparkles, Terminal, ShieldCheck, Zap, CheckCircle } from 'lucide-react';
+import api from '../services/api';
 
 const featureChips = [
   'Natural Language to SQL',
@@ -451,7 +452,7 @@ export const Login: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      window.location.href = '/api/auth/google';
+                      window.location.href = `${api.defaults.baseURL}/auth/google`;
                     }}
                     className="group flex items-center justify-center gap-3 rounded-3xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-25px_rgba(66,133,244,0.35)]"
                   >
@@ -466,7 +467,7 @@ export const Login: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      window.location.href = '/api/auth/github';
+                      window.location.href = `${api.defaults.baseURL}/auth/github`;
                     }}
                     className="group flex items-center justify-center gap-3 rounded-3xl border border-white/10 bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-25px_rgba(15,23,42,0.6)]"
                   >
