@@ -1,7 +1,9 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 // API base URL configuration (uses Vite proxy setup in dev or environment variable)
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BASE_URL = 
+  import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? '/api' : 'https://sqlquerygenerator-8m1j.onrender.com/api');
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
