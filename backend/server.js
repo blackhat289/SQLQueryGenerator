@@ -18,16 +18,32 @@ connectDB();
 // Initialize express app
 const app = express();
 
+// Trust reverse proxy (needed for express-rate-limit to get client IP on Render/Heroku)
+app.set('trust proxy', 1);
+
 // Security Middleware setup
 app.use(helmet()); // Set secure HTTP response headers
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : [];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl) or matching localhost
-      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed)) ||
+                        origin.includes('localhost') ||
+                        origin.includes('127.0.0.1');
+
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error('Blocked by CORS policy'));
+        callback(new Error(`Blocked by CORS policy: ${origin} not allowed`));
       }
     },
     credentials: true,

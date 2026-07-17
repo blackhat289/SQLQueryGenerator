@@ -17,7 +17,7 @@ const protect = async (req, res, next) => {
 
   // Make sure token exists
   if (!token) {
-    console.warn('Protect middleware rejected request without token', {
+    console.log('Protect middleware rejected request without token', {
       url: req.originalUrl,
       method: req.method,
       cookies: req.cookies,
